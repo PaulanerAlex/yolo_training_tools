@@ -19,10 +19,23 @@ if command -v screen >/dev/null 2>&1; then
   echo "Syncing uv environment..."
   uv sync
 
+  # IMPORTANT:
+  # Running under `screen -dm` does not provide a TTY, so interactive password
+  # prompts inside `uv run ...` will fail/hang.
+  #
+  # We therefore ask for the password *before* detaching and pass it to the
+  # server process via an environment variable.
+  #
+  # server.py must read this env var (e.g. os.environ["YOLO_PASSWORD"]).
+  if [[ -z "${YOLO_PASSWORD:-}" ]]; then
+    read -rsp "Password (YOLO_PASSWORD): " YOLO_PASSWORD
+    echo
+  fi
+
   echo "Starting Nextcloud YOLO Training Server in screen."
   echo "Attach with: screen -r ${SESSION_NAME}"
   echo "Detach from screen with: Ctrl-A then D"
-  screen -S "${SESSION_NAME}" -dm uv run src/yolo_training_tools/server.py
+  screen -S "${SESSION_NAME}" -dm env YOLO_PASSWORD="${YOLO_PASSWORD}" uv run src/yolo_training_tools/server.py
 else
   echo "Error: 'screen' is not installed or not in PATH. Install it (e.g. 'sudo apt install screen') or remove the screen wrapper." >&2
   exit 1
