@@ -1,0 +1,13 @@
+# example_config.yaml
+
+# The YOLO model weights to use for training (e.g., yolo11n.pt, yolo11s.pt, etc.)
+model: "yolo11s.pt"
+
+# The name of the dataset folder located inside your designated dataset_dir
+dataset: "ellipse_recognition"
+
+# Number of training epochs
+epochs: 100
+
+# Image size for training
+imgsz: 640

@@ -1,0 +1,33 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "YoloTrainer Configuration",
+  "type": "object",
+  "properties": {
+    "model": {
+      "type": "string",
+      "description": "The YOLO model to use (e.g., 'yolo11n.pt', 'yolo11s.pt')."
+    },
+    "dataset": {
+      "type": "string",
+      "description": "The name of the dataset directory to use (e.g., 'ellipse_recognition')."
+    },
+    "epochs": {
+      "type": "integer",
+      "description": "The number of epochs to train the model.",
+      "minimum": 1,
+      "default": 250
+    },
+    "imgsz": {
+      "type": "integer",
+      "description": "The image size for the YOLO model.",
+      "minimum": 32,
+      "default": 640
+    },
+    "train_args": {
+      "type": "object",
+      "description": "Additional custom arguments to pass directly to the Ultralytics model.train() function (e.g. batch, patience, optimizer).",
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
