@@ -2,5 +2,6 @@
     "nc_url": "https://cloud.example.com/remote.php/webdav/",
     "nc_user": "your_username",
     "input_path": "/yolo_datasets_in/",
-    "output_path": "/yolo_models_out/"
+    "output_path": "/yolo_models_out/",
+    "idle_timeout": 3600
 }

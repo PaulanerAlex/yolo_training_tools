@@ -23,7 +23,8 @@ def run_server():
             "nc_url": "https://cloud.example.com/remote.php/webdav/",
             "nc_user": "your_username",
             "input_path": "/yolo_datasets_in/",
-            "output_path": "/yolo_models_out/"
+            "output_path": "/yolo_models_out/",
+            "idle_timeout": 0
         }
         with open(config_path, "w") as f:
             json.dump(default_config, f, indent=4)
@@ -38,6 +39,7 @@ def run_server():
     nc_user = config.get("nc_user")
     input_path = config.get("input_path")
     output_path = config.get("output_path")
+    idle_timeout = int(config.get("idle_timeout", 0))
     
     if not all([nc_url, nc_user, input_path, output_path]):
         print("Invalid server_config.json. Please ensure nc_url, nc_user, input_path, and output_path are set.")
@@ -46,8 +48,12 @@ def run_server():
     print(f"Loaded config for user '{nc_user}' at '{nc_url}'")
     print(f"Watching input path: {input_path}")
     print(f"Outputting to: {output_path}")
+    if idle_timeout > 0:
+        print(f"Idle timeout set to {idle_timeout} seconds.")
+    else:
+        print("Idle timeout not set. Server will run indefinitely.")
 
-    nc_pass = os.environ["NC_APP_PASSWORD"]
+    nc_pass = os.getenv("NC_APP_PASSWORD")
     if not nc_pass:
         nc_pass = getpass.getpass("Nextcloud App Password: ")
     
@@ -74,8 +80,10 @@ def run_server():
     local_dataset_dir.mkdir(exist_ok=True)
     
     print("\nServer running. Waiting for new .zip datasets...")
+    idle_start_time = None
 
     while True:
+        found_dataset = False
         try:
             # Check for generic zip datasets
             files = client.list(input_path)
@@ -84,6 +92,7 @@ def run_server():
                 if not file_name.endswith('.zip'):
                     continue
                     
+                found_dataset = True
                 remote_file_path = f"{input_path.rstrip('/')}/{file_name}"
                 local_zip_path = local_dataset_dir / file_name
                 dataset_name = file_name.replace('.zip', '')
@@ -222,8 +231,20 @@ def run_server():
             # Exception with client itself (e.g. connection lost) -> Don't crash, just log and try again later
             print(f"Connection or loop error: {e}")
 
+        if found_dataset:
+            # We processed a dataset. Reset the idle timer.
+            idle_start_time = None
+        else:
+            # No dataset was found this iteration.
+            if idle_start_time is None:
+                # Start the timer when we confirm no dataset is processing
+                idle_start_time = time.time()
+            elif idle_timeout > 0 and (time.time() - idle_start_time) > idle_timeout:
+                print(f"No new datasets found for {idle_timeout} seconds. Exiting...")
+                break
+
         # Sleep for a bit before checking again
-        time.sleep(30)
+        time.sleep(5)
 
 if __name__ == "__main__":
     run_server()

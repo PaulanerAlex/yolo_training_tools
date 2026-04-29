@@ -19,6 +19,10 @@
     "output_path": {
       "type": "string",
       "description": "Directory on Nextcloud where trained weights and error logs will be uploaded (e.g., /yolo_models_out/)."
+    },
+    "idle_timeout": {
+      "type": "integer",
+      "description": "Time in seconds the server will wait for a new dataset before exiting. Set to 0 to disable and run indefinitely."
     }
   },
   "required": [

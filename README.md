@@ -1,3 +1,12 @@
+# Anleitung für Arne:
+
+1. clonen `git clone https://github.com/PaulanerAlex/blenderproc_yolo_db_generator.git && cd blenderproc_yolo_db_generator`
+2. `uv sync` ausführen
+3. server_config.json einfügen
+4. `./start_server.sh -f` ausführen. -f für die Ausführung in diesem Prozess (ohne einen neuen zu starten)
+
+
+
 # YOLO Training Tools
 
 A complete toolkit for interactive and automated YOLO model training, including an automated Nextcloud-based WebDAV training server.
@@ -34,27 +43,37 @@ The setup is extremely streamlined. You don't need to answer a bunch of question
 2. **Edit `server_config.json`**:
    Open the file and place your Nextcloud URL, username, input folder, and output folder there. Those parameters are not sensitive and do not need encryption.
 
-3. **Start the Server in the Background**:
-   Since the server needs to run constantly, we recommend using `screen` to keep it running even if you close your terminal.
+3. **Start the Server**:
+   The start script will automatically run the server in the background using `nohup`.
    
-   Start a new screen session:
-   ```bash
-   screen -S yolo-server
-   ```
-   
-   Run the startup script:
+   Start the server:
    ```bash
    ./start_server.sh
    ```
    
-   You will only be prompted strictly for the **Nextcloud App Password** (which is hidden). After entering it, the server will start watching for datasets.
-   
-   To **detach** from the screen session (leaving it running in the background), press: `Ctrl+A` then `D`.
-   
-   To **re-attach** to the running server later (e.g., to view logs or stop it):
+   You will be prompted for your **Nextcloud App Password** (which is hidden). After entering it, the server will start watching for datasets in the background.
+
+   Logs will be written to `server.log`. You can view them with:
    ```bash
-   screen -r yolo-server
+   tail -f server.log
    ```
+
+   To stop the background server, you can run the script again, or use the `kill` command with the PID found in `server.pid`.
+
+   If you prefer to run the server in the current process (foreground), you can use the `-f` or `--foreground` flag:
+   ```bash
+   ./start_server.sh -f
+   ```
+
+### Server Configuration
+
+The auto-generated `server_config.json` file contains several parameters you can adjust:
+
+- `nc_url`: Nextcloud WebDAV URL.
+- `nc_user`: Nextcloud username.
+- `input_path`: Nextcloud folder where zip datasets are uploaded.
+- `output_path`: Nextcloud folder where trained weights and error logs will be uploaded.
+- `idle_timeout`: Time in seconds the server will wait for a new dataset before exiting automatically. Set to `0` to disable the timeout and run the server indefinitely.
 
 ## How the Server Works
 
