@@ -24,3 +24,7 @@ runs/
 
 
 *.pt
+
+
+server.log
+server.pid

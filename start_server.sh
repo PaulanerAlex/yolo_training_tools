@@ -1,42 +1,41 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Start the server in a detached GNU screen session.
-# -S: session name
-# -dm: start detached
-SESSION_NAME="yolo-training-server"
+PID_FILE="server.pid"
+LOG_FILE="server.log"
 
-echo "Starting screen session (${SESSION_NAME})..."
+echo "Preparing to start YOLO Training Server..."
 
-# Create (or replace) a detached session running this script's server command.
-# If an old session exists, kill it first to avoid 'There is a screen on' errors.
-if command -v screen >/dev/null 2>&1; then
-  if screen -list | grep -q "[.]${SESSION_NAME}[[:space:]]"; then
-    echo "Existing screen session found. Stopping it..."
-    screen -S "${SESSION_NAME}" -X quit || true
+# If an old process exists, kill it first
+if [[ -f "$PID_FILE" ]]; then
+  OLD_PID=$(cat "$PID_FILE")
+  if ps -p "$OLD_PID" > /dev/null 2>&1; then
+    echo "Existing server found (PID: $OLD_PID). Stopping it..."
+    kill "$OLD_PID" || true
+    # Wait for the process to exit
+    while ps -p "$OLD_PID" > /dev/null 2>&1; do sleep 0.5; done
   fi
-
-  echo "Syncing uv environment..."
-  uv sync
-
-  # IMPORTANT:
-  # Running under `screen -dm` does not provide a TTY, so interactive password
-  # prompts inside `uv run ...` will fail/hang.
-  #
-  # We therefore ask for the password *before* detaching and pass it to the
-  # server process via an environment variable.
-  #
-  # server.py must read this env var (e.g. os.environ["YOLO_PASSWORD"]).
-  if [[ -z "${YOLO_PASSWORD:-}" ]]; then
-    read -rsp "Password (YOLO_PASSWORD): " YOLO_PASSWORD
-    echo
-  fi
-
-  echo "Starting Nextcloud YOLO Training Server in screen."
-  echo "Attach with: screen -r ${SESSION_NAME}"
-  echo "Detach from screen with: Ctrl-A then D"
-  screen -S "${SESSION_NAME}" -dm env YOLO_PASSWORD="${YOLO_PASSWORD}" uv run src/yolo_training_tools/server.py
-else
-  echo "Error: 'screen' is not installed or not in PATH. Install it (e.g. 'sudo apt install screen') or remove the screen wrapper." >&2
-  exit 1
+  rm -f "$PID_FILE"
 fi
+
+echo "Syncing uv environment..."
+uv sync
+
+# We ask for the password *before* backgrounding and pass it to the
+# server process via an environment variable.
+# server.py must read this env var (e.g. os.environ["NC_APP_PASSWORD"]).
+if [[ -z "${NC_APP_PASSWORD:-}" ]]; then
+  read -rsp "Password (NC_APP_PASSWORD): " NC_APP_PASSWORD
+  echo
+fi
+
+echo "Starting YOLO Training Server in the background using nohup."
+echo "Logs will be written to ${LOG_FILE}."
+
+nohup env NC_APP_PASSWORD="${NC_APP_PASSWORD}" uv run src/yolo_training_tools/server.py > "$LOG_FILE" 2>&1 &
+NEW_PID=$!
+echo $NEW_PID > "$PID_FILE"
+
+echo "Server started successfully (PID: $NEW_PID)."
+echo "To view logs: tail -f $LOG_FILE"
+echo "To stop the server, run this script again or run: kill $NEW_PID"

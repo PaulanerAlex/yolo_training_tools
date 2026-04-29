@@ -47,7 +47,9 @@ def run_server():
     print(f"Watching input path: {input_path}")
     print(f"Outputting to: {output_path}")
 
-    nc_pass = getpass.getpass("Nextcloud App Password: ")
+    nc_pass = os.environ["NC_APP_PASSWORD"]
+    if not nc_pass:
+        nc_pass = getpass.getpass("Nextcloud App Password: ")
     
     # Configure WebDAV client
     options = {
