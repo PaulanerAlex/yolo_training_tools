@@ -52,7 +52,12 @@ def run_server():
     }
     client = Client(options)
 
-    # Ensure output directory exists (won't crash if it already does)
+    # Ensure input and output directories exist (won't crash if they already do)
+    try:
+        client.mkdir(input_path)
+    except:
+        pass
+
     try:
         client.mkdir(output_path)
     except:

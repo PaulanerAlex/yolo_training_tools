@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Nextcloud Server Configuration Phase",
+  "type": "object",
+  "properties": {
+    "nc_url": {
+      "type": "string",
+      "description": "Nextcloud WebDAV URL (e.g., https://cloud.example.com/remote.php/webdav/).",
+      "format": "uri"
+    },
+    "nc_user": {
+      "type": "string",
+      "description": "Nextcloud username for the WebDAV connection."
+    },
+    "input_path": {
+      "type": "string",
+      "description": "Directory on Nextcloud where zip datasets are uploaded to be watched (e.g., /yolo_datasets_in/)."
+    },
+    "output_path": {
+      "type": "string",
+      "description": "Directory on Nextcloud where trained weights and error logs will be uploaded (e.g., /yolo_models_out/)."
+    }
+  },
+  "required": [
+    "nc_url",
+    "nc_user",
+    "input_path",
+    "output_path"
+  ],
+  "additionalProperties": false
+}
