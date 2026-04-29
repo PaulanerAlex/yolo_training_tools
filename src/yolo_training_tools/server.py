@@ -6,8 +6,13 @@ import getpass
 import zipfile
 import pathlib
 import json
+import sys
 from webdav3.client import Client
-from .training_tools import YoloTrainer
+
+# Add the src directory to sys.path if running directly to resolve imports
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent))
+
+from yolo_training_tools.training_tools import YoloTrainer
 
 def run_server():
     print("--- NEXTCLOUD YOLO TRAINING SERVER INIT ---")
@@ -93,23 +98,85 @@ def run_server():
                 with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
                     zip_ref.extractall(extract_dir)
 
-                # Look for configuration (assuming the unzipped content has a YAML or JSON named config)
+                # Look for configuration recursively in case it's in a subdirectory
                 config_path = None
-                for conf in ["config.yml", "config.yaml", "config.json"]:
-                    potential_conf = extract_dir / conf
-                    if potential_conf.exists():
-                        config_path = str(potential_conf)
+                for root_dir, _, unzipped_files in os.walk(extract_dir):
+                    for f in unzipped_files:
+                        if f.lower() in ["config.yml", "config.yaml", "config.json"]:
+                            config_path = str(pathlib.Path(root_dir) / f)
+                            break
+                    if config_path:
                         break
                 
-                # Initialize train process
-                print(f"Starting training on {dataset_name}..." + (" (With found config)" if config_path else ""))
+                # Look for the actual YOLO dataset YAML recursively (excluding configs)
+                dataset_yaml_path = None
+                dataset_actual_name = dataset_name
+                for root_dir, _, unzipped_files in os.walk(extract_dir):
+                    for f in unzipped_files:
+                        if (f.endswith(".yml") or f.endswith(".yaml")) and f.lower() not in ["config.yml", "config.yaml"]:
+                            dataset_yaml_path = pathlib.Path(root_dir) / f
+                            dataset_actual_name = dataset_yaml_path.stem
+                            break
+                    if dataset_yaml_path:
+                        break
                 
-                # Pass the unzipped dir as dataset_dir
-                trainer = YoloTrainer(dataset_dir=str(local_dataset_dir), config_path=config_path)
+                # Find the parent folder of the dataset folder 
+                # (since trainer appends /dataset_name/dataset_name.yml)
+                if dataset_yaml_path:
+                    base_dataset_dir = str(dataset_yaml_path.parent.parent)
+                    
+                    # Read the dataset YAML to dynamically update absolute paths if needed
+                    # Ultralytics often fails if paths inside the YAML are absolute paths from another machine
+                    # or point incorrectly to the unzipped location.
+                    try:
+                        import yaml
+                        with open(dataset_yaml_path, 'r') as yf:
+                            dataset_yaml_content = yaml.safe_load(yf)
+                        
+                        modified = False
+                        
+                        # Use path property to root paths correctly
+                        if 'path' in dataset_yaml_content or 'train' in dataset_yaml_content:
+                            dataset_yaml_content['path'] = str(dataset_yaml_path.parent.absolute())
+                            modified = True
+                            
+                        # Alternatively, if path is not used, just resolve train/val logic
+                        if 'train' in dataset_yaml_content and str(dataset_yaml_content['train']).startswith('/'):
+                             dataset_yaml_content['train'] = os.path.basename(dataset_yaml_content['train'])
+                             modified = True
+                        if 'val' in dataset_yaml_content and str(dataset_yaml_content['val']).startswith('/'):
+                             dataset_yaml_content['val'] = os.path.basename(dataset_yaml_content['val'])
+                             modified = True
+
+                        if modified:
+                            with open(dataset_yaml_path, 'w') as yf:
+                                yaml.dump(dataset_yaml_content, yf)
+                            print(f"Dynamically updated YAML path configurations inside {dataset_yaml_path.name}")
+                    except Exception as yaml_err:
+                        print(f"Failed parsing dataset YAML for path overrides: {yaml_err}")
+
+                else:
+                    base_dataset_dir = str(local_dataset_dir)
+
+                # Initialize train process
+                print(f"Starting training on {dataset_actual_name}..." + (" (With found config)" if config_path else ""))
+                
+                # Pass the dynamically located base dir
+                trainer = YoloTrainer(dataset_dir=base_dataset_dir, config_path=config_path)
                 try:
-                    # Overwrite the dataset property to point directly to the new unzipped dataset
-                    if trainer.config:
-                        trainer.config["dataset"] = dataset_name
+                    # In a server environment, we cannot ask for interactive input.
+                    if not trainer.config:
+                        trainer.config = {}
+                    
+                    # Overwrite the dataset property to point directly to the located dataset name
+                    trainer.config["dataset"] = dataset_actual_name
+                    if dataset_yaml_path:
+                        trainer.config["dataset_yaml_path"] = str(dataset_yaml_path)
+                    
+                    # Ensure a model is selected without interactive prompt
+                    if "model" not in trainer.config:
+                        trainer.config["model"] = "yolo11s.pt"
+                        print("No model specified in config, defaulting to yolo11s.pt")
                     
                     results, resulting_model_name, _ = trainer.train()
                     

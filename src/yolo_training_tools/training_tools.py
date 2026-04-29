@@ -92,7 +92,10 @@ class YoloTrainer:
         imgsz = self.config.get("imgsz", imgsz)
         train_args = self.config.get("train_args", {})
         
-        dataset_yml_path = self.dataset_dir / dataset_name / f"{dataset_name}.yml"
+        if "dataset_yaml_path" in self.config:
+            dataset_yml_path = pathlib.Path(self.config["dataset_yaml_path"])
+        else:
+            dataset_yml_path = self.dataset_dir / dataset_name / f"{dataset_name}.yml"
 
         if not dataset_yml_path.exists():
             raise FileNotFoundError(f"Dataset YAML file not found at {dataset_yml_path}")

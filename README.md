@@ -27,19 +27,34 @@ The setup is extremely streamlined. You don't need to answer a bunch of question
 
 1. **Run the Server for the First Time**:
    ```bash
-   uv run python src/yolo_training_tools/server.py
+   ./start_server.sh
    ```
    This will auto-generate a `server_config.json` file in your directory and exit. 
 
 2. **Edit `server_config.json`**:
    Open the file and place your Nextcloud URL, username, input folder, and output folder there. Those parameters are not sensitive and do not need encryption.
 
-3. **Start the Server**:
-   Run the command again:
+3. **Start the Server in the Background**:
+   Since the server needs to run constantly, we recommend using `screen` to keep it running even if you close your terminal.
+   
+   Start a new screen session:
    ```bash
-   uv run python src/yolo_training_tools/server.py
+   screen -S yolo-server
    ```
-   You will only be prompted strictly for the **Nextcloud App Password** (which is hidden). After that, the server takes over seamlessly.
+   
+   Run the startup script:
+   ```bash
+   ./start_server.sh
+   ```
+   
+   You will only be prompted strictly for the **Nextcloud App Password** (which is hidden). After entering it, the server will start watching for datasets.
+   
+   To **detach** from the screen session (leaving it running in the background), press: `Ctrl+A` then `D`.
+   
+   To **re-attach** to the running server later (e.g., to view logs or stop it):
+   ```bash
+   screen -r yolo-server
+   ```
 
 ## How the Server Works
 

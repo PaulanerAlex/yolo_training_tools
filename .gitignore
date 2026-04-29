@@ -8,3 +8,19 @@ wheels/
 
 # Virtual environments
 .venv
+
+# YOLO & Nextcloud Server Specific
+dataset/
+dataset_server_temp/
+server_config.json
+*_error.txt
+runs/
+
+# IDE & OS
+.vscode/
+.idea/
+.DS_Store
+*.swp
+
+
+*.pt
