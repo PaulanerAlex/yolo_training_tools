@@ -8,7 +8,7 @@ from .bb_tools import BoundingBoxVisualizer
 class YoloTrainer:
     """Class to manage interactive or config-based YOLO model training."""
     
-    def __init__(self, dataset_dir: str = "dataset", models_avail: Optional[List[str]] = None, config_path: Optional[str] = None):
+    def __init__(self, dataset_dir: str = "dataset", models_avail: Optional[List[str]] = None, config_path: Optional[str] = None, config: Optional[dict] = None):
         self.dataset_dir = pathlib.Path(dataset_dir)
         if models_avail is None:
             self.models_avail = ["yolo11n.pt", "yolo11s.pt", "yolo11m.pt", "yolo11l.pt", "yolo11x.pt"]
@@ -16,6 +16,8 @@ class YoloTrainer:
             self.models_avail = models_avail
             
         self.config = self._load_config(config_path) if config_path else {}
+        if config:
+            self.config.update(config)
 
     def _load_config(self, path: str) -> dict:
         p = pathlib.Path(path)
@@ -94,8 +96,47 @@ class YoloTrainer:
         
         if "dataset_yaml_path" in self.config:
             dataset_yml_path = pathlib.Path(self.config["dataset_yaml_path"])
+            if not dataset_yml_path.is_absolute():
+                candidate_path = self.dataset_dir / dataset_name / dataset_yml_path
+                if candidate_path.exists():
+                    dataset_yml_path = candidate_path
+                else:
+                    candidate_path = self.dataset_dir / dataset_yml_path
+                    if candidate_path.exists():
+                        dataset_yml_path = candidate_path
         else:
             dataset_yml_path = self.dataset_dir / dataset_name / f"{dataset_name}.yml"
+
+        # Normalize and patch dataset YAML contents when paths inside the YAML
+        # point to absolute locations or otherwise won't resolve in this run.
+        try:
+            import yaml
+            if dataset_yml_path and dataset_yml_path.exists():
+                with open(dataset_yml_path, 'r') as yf:
+                    dataset_yaml_content = yaml.safe_load(yf)
+
+                modified = False
+                if isinstance(dataset_yaml_content, dict):
+                    # Ensure 'path' points to the dataset YAML parent (absolute)
+                    if 'path' in dataset_yaml_content or 'train' in dataset_yaml_content:
+                        dataset_yaml_content['path'] = str(dataset_yml_path.parent.absolute())
+                        modified = True
+
+                    # If train/val are absolute paths from another machine, convert them
+                    if 'train' in dataset_yaml_content and isinstance(dataset_yaml_content['train'], str) and dataset_yaml_content['train'].startswith('/'):
+                        dataset_yaml_content['train'] = os.path.basename(dataset_yaml_content['train'])
+                        modified = True
+                    if 'val' in dataset_yaml_content and isinstance(dataset_yaml_content['val'], str) and dataset_yaml_content['val'].startswith('/'):
+                        dataset_yaml_content['val'] = os.path.basename(dataset_yaml_content['val'])
+                        modified = True
+
+                if modified:
+                    with open(dataset_yml_path, 'w') as yf:
+                        yaml.dump(dataset_yaml_content, yf)
+                    print(f"Dynamically updated YAML path configurations inside {dataset_yml_path.name}")
+        except Exception:
+            # If YAML parsing/patching fails, continue and let the existence check raise a clear error
+            pass
 
         if not dataset_yml_path.exists():
             raise FileNotFoundError(f"Dataset YAML file not found at {dataset_yml_path}")
@@ -172,3 +213,10 @@ class YoloTester:
                 self.visualizer.show(str(img_path), corners_list, multiple=True)
             else:
                 print("No bounding boxes detected.")
+
+if __name__ == "__main__":
+    trainer = YoloTrainer(dataset_dir="rt_26_dataset_v1", config_path="rt_26_dataset_v1/config.yaml")
+    results, model_name, dataset_name = trainer.train()
+    
+    tester = YoloTester()
+    tester.test(project_name=dataset_name, path_to_model=f"runs/detect/train/weights/best.pt")

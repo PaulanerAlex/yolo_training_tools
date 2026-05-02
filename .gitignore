@@ -11,6 +11,7 @@ wheels/
 
 # YOLO & Nextcloud Server Specific
 dataset/
+datasets/
 dataset_server_temp/
 server_config.json
 *_error.txt

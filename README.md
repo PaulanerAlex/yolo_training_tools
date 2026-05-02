@@ -75,6 +75,16 @@ The auto-generated `server_config.json` file contains several parameters you can
 - `output_path`: Nextcloud folder where trained weights and error logs will be uploaded.
 - `idle_timeout`: Time in seconds the server will wait for a new dataset before exiting automatically. Set to `0` to disable the timeout and run the server indefinitely.
 
+## Local Training
+
+If you want to train on a dataset stored locally in `datasets/`, use the interactive trainer:
+
+```bash
+uv run python main.py
+```
+
+The program lists the folders in `datasets/`, asks which dataset to use, auto-detects the dataset YAML inside that folder, and then prompts for the base model, epochs, and image size. It uses the existing `YoloTrainer` class, so the same training behavior is reused for both local and server-based runs.
+
 ## How the Server Works
 
 1. **Upload Dataset**: Zip your dataset folder (including a `config.yml` or `config.json` if desired) and upload it to the watched Nextcloud input folder.
