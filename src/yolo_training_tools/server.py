@@ -191,19 +191,28 @@ def run_server():
                     
                     results, resulting_model_name, _ = trainer.train()
                     
-                    # Upload successful trained weights (Usually Ultralytics puts it at runs/detect/train/weights/best.pt)
-                    # For a robust approach, we need to locate the best.pt from the training results.
-                    # As a shortcut, we're assuming ultralytics default output runs/detect/train/weights/best.pt.
-                    
-                    if hasattr(results, 'save_dir'):
-                        best_weights_path = os.path.join(results.save_dir, "weights", "best.pt")
+                    # Compress the entire run folder and upload
+                    if hasattr(results, 'save_dir') and results.save_dir:
+                        run_dir = str(results.save_dir)
                     else:
-                        best_weights_path = "runs/detect/train/weights/best.pt"
+                        run_dir = "runs/detect/train"
 
-                    if os.path.exists(best_weights_path):
-                        remote_model_dest = f"{output_path.rstrip('/')}/{dataset_name}_best.pt"
-                        print(f"Uploading trained model to {remote_model_dest}...")
-                        client.upload_sync(remote_path=remote_model_dest, local_path=best_weights_path)
+                    if os.path.exists(run_dir):
+                        timestamp = time.strftime("%Y%m%d_%H%M%S")
+                        local_zip_output_base = os.path.join(str(local_dataset_dir), f"{dataset_name}_run_{timestamp}")
+                        
+                        print(f"Compressing run directory {run_dir}...")
+                        shutil.make_archive(local_zip_output_base, 'zip', run_dir)
+                        
+                        local_zip_output = f"{local_zip_output_base}.zip"
+                        remote_model_dest = f"{output_path.rstrip('/')}/{dataset_name}_run_{timestamp}.zip"
+                        
+                        print(f"Uploading trained run to {remote_model_dest}...")
+                        client.upload_sync(remote_path=remote_model_dest, local_path=local_zip_output)
+                        
+                        # Clean up the generated zip file after upload
+                        if os.path.exists(local_zip_output):
+                            os.remove(local_zip_output)
                     
                     # Delete remote dataset
                     print(f"Cleaning up: deleting original dataset on remote: {remote_file_path}")
