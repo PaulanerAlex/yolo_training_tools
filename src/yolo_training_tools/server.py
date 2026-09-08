@@ -97,84 +97,77 @@ def run_server():
                 local_zip_path = local_dataset_dir / file_name
                 dataset_name = file_name.replace('.zip', '')
                 
-                print(f"New dataset detected: {file_name}. Downloading...")
-                client.download_sync(remote_file_path, str(local_zip_path))
-                
-                # Unzip dataset
-                print(f"Unzipping {file_name}...")
                 extract_dir = local_dataset_dir / dataset_name
-                if extract_dir.exists():
-                    shutil.rmtree(extract_dir)
-                
-                with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(extract_dir)
-
-                # Look for configuration recursively in case it's in a subdirectory
-                config_path = None
-                for root_dir, _, unzipped_files in os.walk(extract_dir):
-                    for f in unzipped_files:
-                        if f.lower() in ["config.yml", "config.yaml", "config.json"]:
-                            config_path = str(pathlib.Path(root_dir) / f)
-                            break
-                    if config_path:
-                        break
-                
-                # Look for the actual YOLO dataset YAML recursively (excluding configs)
-                dataset_yaml_path = None
-                dataset_actual_name = dataset_name
-                for root_dir, _, unzipped_files in os.walk(extract_dir):
-                    for f in unzipped_files:
-                        if (f.endswith(".yml") or f.endswith(".yaml")) and f.lower() not in ["config.yml", "config.yaml"]:
-                            dataset_yaml_path = pathlib.Path(root_dir) / f
-                            dataset_actual_name = dataset_yaml_path.stem
-                            break
-                    if dataset_yaml_path:
-                        break
-                
-                # Find the parent folder of the dataset folder 
-                # (since trainer appends /dataset_name/dataset_name.yml)
-                if dataset_yaml_path:
-                    base_dataset_dir = str(dataset_yaml_path.parent.parent)
-                    
-                    # Read the dataset YAML to dynamically update absolute paths if needed
-                    # Ultralytics often fails if paths inside the YAML are absolute paths from another machine
-                    # or point incorrectly to the unzipped location.
-                    try:
-                        import yaml
-                        with open(dataset_yaml_path, 'r') as yf:
-                            dataset_yaml_content = yaml.safe_load(yf)
-                        
-                        modified = False
-                        
-                        # Use path property to root paths correctly
-                        if 'path' in dataset_yaml_content or 'train' in dataset_yaml_content:
-                            dataset_yaml_content['path'] = str(dataset_yaml_path.parent.absolute())
-                            modified = True
-                            
-                        # Alternatively, if path is not used, just resolve train/val logic
-                        if 'train' in dataset_yaml_content and str(dataset_yaml_content['train']).startswith('/'):
-                             dataset_yaml_content['train'] = os.path.basename(dataset_yaml_content['train'])
-                             modified = True
-                        if 'val' in dataset_yaml_content and str(dataset_yaml_content['val']).startswith('/'):
-                             dataset_yaml_content['val'] = os.path.basename(dataset_yaml_content['val'])
-                             modified = True
-
-                        if modified:
-                            with open(dataset_yaml_path, 'w') as yf:
-                                yaml.dump(dataset_yaml_content, yf)
-                            print(f"Dynamically updated YAML path configurations inside {dataset_yaml_path.name}")
-                    except Exception as yaml_err:
-                        print(f"Failed parsing dataset YAML for path overrides: {yaml_err}")
-
-                else:
-                    base_dataset_dir = str(local_dataset_dir)
-
-                # Initialize train process
-                print(f"Starting training on {dataset_actual_name}..." + (" (With found config)" if config_path else ""))
-                
-                # Pass the dynamically located base dir
-                trainer = YoloTrainer(dataset_dir=base_dataset_dir, config_path=config_path)
                 try:
+                    print(f"New dataset detected: {file_name}. Downloading...")
+                    client.download_sync(remote_file_path, str(local_zip_path))
+                    
+                    # Unzip dataset
+                    print(f"Unzipping {file_name}...")
+                    if extract_dir.exists():
+                        shutil.rmtree(extract_dir)
+                    
+                    with zipfile.ZipFile(local_zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(extract_dir)
+
+                    # Look for configuration recursively in case it's in a subdirectory
+                    config_path = None
+                    for root_dir, _, unzipped_files in os.walk(extract_dir):
+                        for f in unzipped_files:
+                            if f.lower() in ["config.yml", "config.yaml", "config.json"]:
+                                config_path = str(pathlib.Path(root_dir) / f)
+                                break
+                        if config_path:
+                            break
+                    
+                    # Look for the actual YOLO dataset YAML recursively (excluding configs)
+                    dataset_yaml_path = None
+                    dataset_actual_name = dataset_name
+                    for root_dir, _, unzipped_files in os.walk(extract_dir):
+                        for f in unzipped_files:
+                            if (f.endswith(".yml") or f.endswith(".yaml")) and f.lower() not in ["config.yml", "config.yaml"]:
+                                dataset_yaml_path = pathlib.Path(root_dir) / f
+                                dataset_actual_name = dataset_yaml_path.stem
+                                break
+                        if dataset_yaml_path:
+                            break
+                    
+                    # Find the parent folder of the dataset folder 
+                    # (since trainer appends /dataset_name/dataset_name.yml)
+                    if dataset_yaml_path:
+                        base_dataset_dir = str(dataset_yaml_path.parent.parent)
+                        
+                        # Read the dataset YAML to dynamically update absolute paths if needed
+                        try:
+                            import yaml
+                            with open(dataset_yaml_path, 'r') as yf:
+                                dataset_yaml_content = yaml.safe_load(yf)
+                            
+                            modified = False
+                            if 'path' in dataset_yaml_content or 'train' in dataset_yaml_content:
+                                dataset_yaml_content['path'] = str(dataset_yaml_path.parent.absolute())
+                                modified = True
+                                
+                            if 'train' in dataset_yaml_content and str(dataset_yaml_content['train']).startswith('/'):
+                                 dataset_yaml_content['train'] = os.path.basename(dataset_yaml_content['train'])
+                                 modified = True
+                            if 'val' in dataset_yaml_content and str(dataset_yaml_content['val']).startswith('/'):
+                                 dataset_yaml_content['val'] = os.path.basename(dataset_yaml_content['val'])
+                                 modified = True
+
+                            if modified:
+                                with open(dataset_yaml_path, 'w') as yf:
+                                    yaml.dump(dataset_yaml_content, yf)
+                                print(f"Dynamically updated YAML path configurations inside {dataset_yaml_path.name}")
+                        except Exception as yaml_err:
+                            print(f"Failed parsing dataset YAML for path overrides: {yaml_err}")
+
+                    else:
+                        base_dataset_dir = str(local_dataset_dir)
+
+                    # Initialize train process
+                    print(f"Starting training on {dataset_actual_name}..." + (" (With found config)" if config_path else ""))
+                    trainer = YoloTrainer(dataset_dir=base_dataset_dir, config_path=config_path)
                     # In a server environment, we cannot ask for interactive input.
                     if not trainer.config:
                         trainer.config = {}
@@ -219,15 +212,27 @@ def run_server():
                     client.clean(remote_file_path)
                     
                 except Exception as e:
-                    # Catch training exceptions
+                    # Catch processing/training exceptions
                     error_msg = traceback.format_exc()
-                    print(f"Training failed. Uploading log. Error: {e}")
+                    print(f"Dataset processing/training failed. Uploading log. Error: {e}")
                     log_file = f"{dataset_name}_error.txt"
                     with open(log_file, "w") as f:
                         f.write(error_msg)
                         
                     remote_err_dest = f"{output_path.rstrip('/')}/{log_file}"
-                    client.upload_sync(remote_path=remote_err_dest, local_path=log_file)
+                    try:
+                        client.upload_sync(remote_path=remote_err_dest, local_path=log_file)
+                    except Exception as upload_err:
+                        print(f"Failed to upload error log to remote: {upload_err}")
+                    if os.path.exists(log_file):
+                        os.remove(log_file)
+                    
+                    # Clean up the broken remote file to avoid an infinite loop
+                    try:
+                        print(f"Cleaning up: deleting broken dataset on remote: {remote_file_path}")
+                        client.clean(remote_file_path)
+                    except Exception as clean_err:
+                        print(f"Failed to delete broken dataset on remote: {clean_err}")
                     
                 finally:
                     # Clean up local files
@@ -252,8 +257,9 @@ def run_server():
                 print(f"No new datasets found for {idle_timeout} seconds. Exiting...")
                 break
 
-        # Sleep for a bit before checking again
-        time.sleep(5)
+        # Sleep for a bit before checking again to avoid rate limits
+        poll_interval = int(config.get("poll_interval", 30))
+        time.sleep(poll_interval)
 
 if __name__ == "__main__":
     run_server()

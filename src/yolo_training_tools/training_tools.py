@@ -92,7 +92,11 @@ class YoloTrainer:
             
         epochs = self.config.get("epochs", epochs)
         imgsz = self.config.get("imgsz", imgsz)
-        train_args = self.config.get("train_args", {})
+        train_args = self.config.get("train_args")
+        if train_args is None:
+            train_args = self.config.get("training_args", {})
+        if not isinstance(train_args, dict):
+            train_args = {}
         
         if "dataset_yaml_path" in self.config:
             dataset_yml_path = pathlib.Path(self.config["dataset_yaml_path"])
@@ -142,7 +146,15 @@ class YoloTrainer:
             raise FileNotFoundError(f"Dataset YAML file not found at {dataset_yml_path}")
 
         print("--- CONFIG SELECTION ---")
-        print("Using default config settings. You can modify the training parameters in the script if needed.\n")
+        print(f"Epochs: {epochs}")
+        print(f"Image size (imgsz): {imgsz}")
+        if train_args:
+            print("Ultralytics training arguments (train_args):")
+            for arg_key, arg_val in train_args.items():
+                print(f"  - {arg_key}: {arg_val}")
+        else:
+            print("No extra training arguments specified (using Ultralytics defaults).")
+        print()
 
         model = YOLO(model_name)
         results = model.train(data=str(dataset_yml_path), epochs=epochs, imgsz=imgsz, **train_args)

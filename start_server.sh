@@ -43,12 +43,12 @@ if [ "$FOREGROUND" = true ]; then
   echo "Starting YOLO Training Server in the foreground."
   echo "Press Ctrl+C to stop."
   # We do not use nohup or background it here
-  env NC_APP_PASSWORD="${NC_APP_PASSWORD}" uv run src/yolo_training_tools/server.py
+  env NC_APP_PASSWORD="${NC_APP_PASSWORD}" PYTHONUNBUFFERED=1 uv run src/yolo_training_tools/server.py
 else
   echo "Starting YOLO Training Server in the background using nohup."
   echo "Logs will be written to ${LOG_FILE}."
 
-  nohup env NC_APP_PASSWORD="${NC_APP_PASSWORD}" uv run src/yolo_training_tools/server.py > "$LOG_FILE" 2>&1 &
+  nohup env NC_APP_PASSWORD="${NC_APP_PASSWORD}" PYTHONUNBUFFERED=1 uv run src/yolo_training_tools/server.py > "$LOG_FILE" 2>&1 &
   NEW_PID=$!
   echo $NEW_PID > "$PID_FILE"
 
