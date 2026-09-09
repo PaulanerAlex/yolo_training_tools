@@ -1,6 +1,7 @@
 import os
 import pathlib
 import random
+import time
 from typing import Optional, List, Tuple
 from ultralytics import YOLO
 from .bb_tools import BoundingBoxVisualizer
@@ -97,6 +98,15 @@ class YoloTrainer:
             train_args = self.config.get("training_args", {})
         if not isinstance(train_args, dict):
             train_args = {}
+
+        # Default to a unique run folder (e.g., runs/<dataset_name>_<timestamp>)
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        if "project" not in train_args and "project" in self.config:
+            train_args["project"] = self.config["project"]
+        if "name" not in train_args and "name" in self.config:
+            train_args["name"] = self.config["name"]
+        train_args.setdefault("project", "runs")
+        train_args.setdefault("name", f"{dataset_name}_{timestamp}")
         
         if "dataset_yaml_path" in self.config:
             dataset_yml_path = pathlib.Path(self.config["dataset_yaml_path"])
@@ -231,4 +241,5 @@ if __name__ == "__main__":
     results, model_name, dataset_name = trainer.train()
     
     tester = YoloTester()
-    tester.test(project_name=dataset_name, path_to_model=f"runs/detect/train/weights/best.pt")
+    best_model = str(results.save_dir / "weights" / "best.pt") if hasattr(results, "save_dir") and results.save_dir else "runs/detect/train/weights/best.pt"
+    tester.test(project_name=dataset_name, path_to_model=best_model)
